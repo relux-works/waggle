@@ -274,7 +274,7 @@ The kernel checks leases at the three places where damage happens: **spawn** (st
 | Step | Delivers | Kept afterwards |
 | --- | --- | --- |
 | F1 | `waggle` module: envelope, multi-signature SSHSIG via `ssh-agent` (including FIDO user verification), roster and policy, verification pipeline, receipts, audit; interop tests against `ssh-keygen -Y verify` | yes |
-| F2 | local carrier, doorbell + pull, `task-board mail send|read|tail|approve|rooms|rejected` | yes |
+| F2 | local carrier, doorbell + pull, `task-board mail send\|read\|tail\|approve\|rooms\|rejected` | yes |
 | F3 | NATS carrier on a dedicated Mac mini on the operators' tailnet; NATS users per operator; workers never get NATS credentials | yes |
 | F4 | scope leases enforced at spawn, integrate, board commit | yes |
 | F5 (optional) | IRC bridge on Ergo | yes, as a console |
