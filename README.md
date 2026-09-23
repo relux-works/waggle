@@ -1,6 +1,6 @@
 # waggle
 
-Signed messages between coding agents. waggle defines one message envelope, one verification pipeline and one delivery model for agent orchestrators that share a project. Orchestrators coordinate with each other, first on one machine, then across a few operators over the internet, later with other organizations. Orchestrators also send one-way commands (clarify, reprioritize, cancel, halt) to their own workers; workers can never instruct orchestrators. Every message carries SSH signatures (SSHSIG) over its exact bytes, so any receiver on any transport can check who sent it and who approved it, and a stored message can be verified again offline with stock OpenSSH.
+A secure agent coordination and communication protocol: signed messages between agents. waggle defines one message envelope, one verification pipeline and one delivery model for agent orchestrators that share a project. Orchestrators coordinate with each other, first on one machine, then across a few operators over the internet, later with other organizations. Orchestrators also send one-way commands (clarify, reprioritize, cancel, halt) to their own workers; workers can never instruct orchestrators. Every message carries SSH signatures (SSHSIG) over its exact bytes, so any receiver on any transport can check who sent it and who approved it, and a stored message can be verified again offline with stock OpenSSH.
 
 ## Status
 
