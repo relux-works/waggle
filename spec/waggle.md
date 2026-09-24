@@ -441,11 +441,11 @@ Always: children never receive carrier credentials or the parent's manager varia
 | 12 | Protocol lab | decided: its findings feed the coordination layer through reviewed changes; production authority stays outside the model (§13) |
 | 13 | Delivery into sessions | decided: through the session-host module's notice injection (working name `agent-session-host`), no harness-specific code in waggle (§10) |
 | 14 | Board-server mailbox | decided: not revived (§9.3) |
-| 15 | Board processes | direction decided 2026-09-24: Amendment A1 (§19), implemented with CM2: board acts (approvals, relaxations, human transitions), signed external events from service principals, the hand-off result signed by the receiving board's host, user verification in board policy, `required` by default for approvals, relaxations, delegations and halts once a project sets a signature policy, with `hardware-bound` keys as the floor, and delegation of board acts to orchestrator roles within grants the board verifies (§19.8) |
+| 15 | Board processes | direction decided 2026-09-24: Amendment A1 (§19), implemented with CM2: board acts (approvals, relaxations, human transitions), signed external events from service principals, the hand-off result signed by the receiving board's host, user verification in board policy, `required` by default for approvals, relaxations, delegations and halts once a project sets a signature policy, with `hardware-bound` keys as the floor, and delegation of board acts to the grantor's own orchestrator sessions within grants the board verifies (§19.8); the hand-off result is signed in a new signer role, `result` (§19.4) |
 
 ## 19. Amendment A1: board processes
 
-Status: direction accepted 2026-09-24; implemented with CM2 (§17). Consumer: the process-configuration specification in [relux-works/curator-playbook](https://github.com/relux-works/curator-playbook) (`spec/process-configuration.md` §4.2, §6.4, §6.5, §6.9). A1 adds two classes, one principal kind, one `coord` type with its own host namespace, one policy field, and delegation: two board types for granting and revoking it and one delegate namespace (§19.8). Nothing in §1–§18 changes meaning.
+Status: direction accepted 2026-09-24; implemented with CM2 (§17). Consumer: the process-configuration specification in [relux-works/curator-playbook](https://github.com/relux-works/curator-playbook) (`spec/process-configuration.md` §4.2, §6.4, §6.5, §6.9). A1 adds two classes, one principal kind, one `coord` type signed in a new signer role, one policy field, and delegation: two board types for granting and revoking it and one delegate namespace (§19.8). A1 changes §1–§18 in one place: step 2 of §4.3 gains the signer role `result` (§19.4). Nothing else in §1–§18 changes meaning.
 
 A process configuration lets a board decide who may move work: a person approves a purchase, a supplier's system confirms an order, another process returns its result. Before A1 none of these had a waggle form. A verifier following §4.3 had to refuse each of them, or the board had to verify them by rules waggle did not define.
 
@@ -475,9 +475,9 @@ A new class, `board`, carries the acts of people on a board. Its author namespac
   - the act itself: the role approved as, the transition, or the requirement relaxed with its scope and expiry;
   - the evaluated revision: the semantic digest of the resolved process configuration in force, and for work under a Change Request the revision under evaluation. The digest, not the commit, is bound, so a landing that leaves the resolved configuration unchanged keeps a pending act valid;
   - the approver principal, in `signers.approver`;
-  - the element fields shown to the approver, which include at least every field that the guards of the act's transition read, with their values.
+  - every field the element's type declares, with its value (`shown`), and the digest of those fields (`fields_digest`), so the approver sees, and the signature binds, the whole element as it stood.
 
-  An approval therefore cannot be replayed after the element enters the state again, against another configuration or revision, or for another amount: the board compares the bound values with the element's current ones (§19.7).
+  An approval therefore cannot be replayed after the element enters the state again, against another configuration or revision, or after any declared field of the element changed: the board compares the bound digest with the digest of the element's current fields (§19.7).
 - **What you see is what you sign.** A board act is signed only through the operator-facing approve command (§4.2, `task-board mail approve`). The command renders every body field, including the element fields shown, before the key signs. An agent never holds an operator key.
 - **Addressing.** A board act has no `to`. The board named in `body.board` consumes it, whether it arrives through that board's local command or over a carrier.
 
@@ -498,7 +498,8 @@ A new class, `board`, carries the acts of people on a board. Its author namespac
     "entry": 2,
     "act": { "approve": { "role": "manager" } },
     "revision": { "process": { "digest": "sha256:9d41…" } },
-    "shown": { "supplier": "Milk & Co", "amount": "620.00 EUR" }
+    "shown": { "item": "milk", "supplier": "Milk & Co", "amount": "620.00 EUR", "due": null, "invoice": null },
+    "fields_digest": "sha256:4c7a…"
   }
 }
 ```
@@ -553,7 +554,8 @@ svc:*@acme cert-authority,namespaces="event.v1@waggle" ssh-ed25519 AAAA…
 `coord` gains one type, `handoff-result`. It closes the hand-off that `handoff-offer` and `handoff-accept` open. When the element the accepting process created from the offer reaches a terminal state, the receiving board's kernel reports the result to the offering orchestrator.
 
 - **Not a model's claim.** An orchestrator session is an agent, and what it writes proves who said it, not that it is true. The result therefore comes from the receiving board's kernel, which observes the terminal transition, and is signed with a host key of that board, a key no orchestrator session holds.
-- **Author and namespace.** A `host:` principal of the receiving board, under the namespace `result.coord.v1@waggle`. Only `host:` roster lines admit that namespace, and `handoff-result` is the only type it signs: the verifier refuses a `handoff-result` signed under `coord.v1@waggle`, and a host signature on any other `coord` type.
+- **Signer role and namespace.** A1 adds one signer role to step 2 of §4.3: `result`, whose namespace prefix is `result.`, so that it signs `coord.handoff-result` under `result.coord.v1@waggle`, and whose principal is `payload.signers.result`. A `coord.handoff-result` carries exactly one signature, in the role `result`, by a `host:` principal of the receiving board; its signature policy requires that role and refuses an `author` signature. Only `host:` roster lines admit the namespace, and `handoff-result` is the only type it signs: the verifier refuses a `handoff-result` signed in any other role, and a host signature on any other `coord` type.
+- **The host key.** The signing host key is at least `hardware-bound`, or held by an OS account other than the operator's, so that no process running as the operator can sign a result. A host whose key is a file the operator's account can read does not sign results.
 - **Body.** The offer (`offer`, the id of the `handoff-offer`); the received element and its board; its final state and resolution; the receiving board's revision (its board-state commit) at the terminal transition; the envelope ids of the signed act or event that caused that transition, when one did; a bounded summary. `reply_to` is the id of the `handoff-accept`.
 - **Verification.** The offering board accepts the result only from a host principal that its committed project file binds to the receiving board (process-configuration §6.5; the binding form comes with cross-board hand-off).
 - **One result per offer.** A second result for the same offer with other bytes is refused as a conflicting duplicate.
@@ -566,6 +568,7 @@ svc:*@acme cert-authority,namespaces="event.v1@waggle" ssh-ed25519 AAAA…
   "id": "0192f9c4-7d1e-7a2b-9c3d-4e5f6a7b8c9d",
   "from": "host:books-1@acme",
   "to": "orch:cafe@acme",
+  "signers": { "result": "host:books-1@acme" },
   "project": "acme",
   "reply_to": "0192f8e0-1a2b-7c3d-8e4f-5a6b7c8d9e0f",
   "issued_at": 1790500000000,
@@ -608,7 +611,7 @@ The project may set `user_verified` for every category at once or per category, 
 | `board.v1@waggle` (approver: `approve.board.v1@waggle`) | `approve`, `relax`, `transition`, `delegate`, `revoke` | orchestrator session or operator → the board named in the body; the operator's approver signature is the act |
 | `delegate.board.v1@waggle` (delegate role) | `approve`, `relax`, `transition` on behalf of a grantor | orchestrator session of a delegate role → the board named in the body; counted as the grantor's act only within the referenced delegation (§19.8) |
 | `event.v1@waggle` | `post` | service (bridge) → the board named in the body |
-| `result.coord.v1@waggle` (added type `coord.handoff-result`) | `handoff-result` | the receiving board's host → offering orchestrator |
+| `result.coord.v1@waggle` (signer role `result`; added type `coord.handoff-result`) | `handoff-result` | the receiving board's host → offering orchestrator |
 
 - Operator roster lines add `board.v1@waggle,approve.board.v1@waggle`. Orchestrator session lines add `board.v1@waggle` as author only, and `delegate.board.v1@waggle`, which a verifier accepts only with a delegation that covers the act; never `approve.board`, and never `result.coord`.
 - Host lines add `result.coord.v1@waggle`, for hand-off results only.
@@ -618,8 +621,8 @@ The project may set `user_verified` for every category at once or per category, 
 
 waggle provides the forms, verification and delivery. The board decides what they mean (process-configuration §4.2, §6.3–§6.5, §6.9):
 - which act a guard counts;
-- freshness: an approval counts only for the state entry it names, under a Change Request only for the revision it names, only while the configuration digest it binds is the one in force, and only while the element's fields still hold the values it binds;
-- quorum over distinct principals, a delegated act counting for its grantor;
+- freshness: an approval counts only for the state entry it names, under a Change Request only for the revision it names, only while the configuration digest it binds is the one in force, and only while the element's declared fields still hash to the digest it binds;
+- quorum over distinct principals: acts under delegation count as at most one principal, and a quorum above one needs distinct people acting directly or distinct delegate sessions of distinct grantors;
 - which acts may be delegated, to which roles, under which ceilings, and each delegation's conditions, scope, budgets and expiry;
 - which signer group may post which event;
 - how accepted events are kept;
@@ -629,16 +632,17 @@ waggle provides the forms, verification and delivery. The board decides what the
 
 A person may delegate named board acts to an orchestrator: approvals of a role, transitions out of human-owned states, relaxations. The process configuration says what may be delegated, to which roles and under which ceilings (process-configuration §4.2). A delegation lets autonomous work go on without a person's signature on every step, while the person keeps what the delegation leaves out.
 
-- **The grant.** A `board.delegate` act records the delegation: the grantor, the delegate role, the acts, their `field` conditions, a subtree scope, an expiry and optional budgets per period. It is a human act: the grantor's approver signature, made through the approve command, is what counts, at the policy's assurance and user verification (§19.5).
+- **The grant.** A `board.delegate` act records the delegation: the grantor, the delegate role, the sessions that may act under it, the acts, their `field` conditions, a subtree scope, an expiry and optional budgets per period. By default only the grantor's own orchestrator sessions act under a grant: sessions whose certificates the grantor's key issued (§3). A grant may name other session principals explicitly, never a pattern. It is a human act: the grantor's approver signature, made through the approve command, is what counts, at the policy's assurance and user verification (§19.5). The board verifies the envelope once, when it records the grant; later delegated acts reference the recorded grant, so the envelope's `expires_at` bounds only its delivery and the grant's own expiry bounds its use.
 - **The delegated act.** A `board.approve`, `board.relax` or `board.transition` made by a delegate carries no approver signature. The delegate's orchestrator session signs it in the `delegate` role, under the namespace `delegate.board.v1@waggle`, and the body names the grant: `on_behalf_of` holds the grantor and the envelope id of the `board.delegate`. A delegate signature is never an approver signature; the namespaces keep them apart.
 - **The chain the board verifies.** The board verifies:
   1. the `board.delegate` envelope and its approver signature;
-  2. the delegate signature, whose principal belongs to the delegated role;
-  3. that the act falls inside the grant's acts, scope, conditions, budgets and expiry, and inside the project's ceilings at the pinned revision.
+  2. the delegate signature, made by a session whose certificate the grantor's key issued, or by a session principal the grant names, and whose certificate extension `waggle-role@relux.works` names the delegate role, checked against the role alias at the pinned revision;
+  3. that the act falls inside the grant's acts, scope, conditions, budgets and expiry, and inside the project's ceilings at the pinned revision;
+  4. that the delegate session, or a run it spawned, wrote no declared field of the element, unless the project's rule allows self-approval (process-configuration §4.2).
 
-  The board counts budgets from the delegated acts it has recorded; no signature carries budget state.
+  The board's kernel alone counts budgets, from the delegated acts it has recorded; no signature carries budget state. Checking a budget and recording the act are one compare-and-set in the lease store (§12), so a board shared across machines needs the CM2 carrier's lease store for budgeted grants.
 - **Certificate form.** A grantor may instead certify the delegate's session key directly: an OpenSSH certificate signed by the grantor's key, whose key id names the delegation and whose critical option `delegation@waggle` carries the grant's envelope id. It is valid no later than the grant expires. A verifier accepts it only when the grantor's roster line admits certifying for `delegate.board.v1@waggle` and the certificate's constraints match the grant. The reference form works on every carrier; the certificate form lets a delegate prove its authority without the record being fetched.
-- **Revocation.** A `board.revoke` act ends a delegation at once. The board refuses delegated acts under it that arrive later; acts it accepted before stay valid. In the certificate form, short certificate lifetimes bound the exposure further.
+- **Revocation and expiry.** A `board.revoke` act, like the grant's expiry, ends a delegation at once. The board refuses delegated acts under it that arrive later, and delegated approvals under it that no transition has used yet stop counting; acts already consumed stay valid. Across machines a revocation takes effect through the lease store. In the certificate form, short certificate lifetimes bound the exposure further.
 - **Everything else waits for the person.** An act the delegation does not cover is not taken. The board notifies the grantor, and the grantor signs the act, or does not.
 
 ```json
@@ -659,7 +663,8 @@ A person may delegate named board acts to an orchestrator: approvals of a role, 
     "act": { "approve": { "role": "manager" } },
     "on_behalf_of": { "grantor": "op:alice@acme", "delegation": "0192f7aa-0b1c-7d2e-8f3a-4b5c6d7e8f90" },
     "revision": { "process": { "digest": "sha256:9d41…" } },
-    "shown": { "supplier": "Milk & Co", "amount": "180.00 EUR" }
+    "shown": { "item": "milk", "supplier": "Milk & Co", "amount": "180.00 EUR", "due": null, "invoice": null },
+    "fields_digest": "sha256:81e0…"
   }
 }
 ```
@@ -668,7 +673,8 @@ A person may delegate named board acts to an orchestrator: approvals of a role, 
 
 With CM2 (§17):
 - the verification pipeline gains the `board` and `event` classes, the `svc:` kind and the `user_verified` policy field;
-- the board types `board.delegate` and `board.revoke`, the `delegate.board.v1@waggle` namespace, and verification of the delegation chain in both forms;
+- the board types `board.delegate` and `board.revoke`, the `delegate.board.v1@waggle` namespace, and verification of the delegation chain in both forms, with budgets and revocations in the carrier's lease store;
+- the signer role `result` in step 2 of §4.3;
 - the approve command renders board acts;
 - the board verifies `event.post` from `task-board event post` and from bridges;
 - a hand-off across boards runs `handoff-offer`, `handoff-accept` and `handoff-result` over the CM2 carrier.
