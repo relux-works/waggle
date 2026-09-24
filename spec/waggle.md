@@ -428,7 +428,7 @@ Always: children never receive carrier credentials or the parent's manager varia
 | 2 | Signature container | decided: SSHSIG, multi-signature by role; Apiary authority wire gets an amendment |
 | 3 | Injection defense | decided: §7 |
 | 4 | First internet carrier | decided: NATS JetStream on a dedicated Mac mini on the operators' tailnet, as a separate tailnet-only service clear of the host's shared ingress |
-| 5 | Console | proposed: own terminal UI first, IRC bridge optional |
+| 5 | Console | decided 2026-09-24: own terminal UI first, IRC bridge optional |
 | 6 | Federation | proposed: XMPP + A2A gateway |
 | 7 | Priority | decided: start now, in parallel with the migration |
 | 8 | Key hardware | decided: pluggable signer providers and assurance levels (Apple Secure Enclave, FIDO, TPM, PIV, ordinary-key fallback) |

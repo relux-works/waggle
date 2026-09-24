@@ -63,7 +63,7 @@ Start now, in parallel with the migration off agents-infra. CM0–CM1 need nothi
 | 1 | Name | decided: `waggle`, its own public Go module and repository, consumed like `skill-agents-management` |
 | 2 | Signature container | decided: SSHSIG with multi-signature by role; Apiary's authority wire gets an amendment |
 | 3 | First internet carrier | decided: NATS JetStream on a dedicated Mac mini on the operators' tailnet, a separate tailnet-only service clear of the host's shared ingress |
-| 4 | Console | proposed: own terminal UI first; IRC bridge optional |
+| 4 | Console | decided 2026-09-24: own terminal UI first; IRC bridge optional |
 | 4b | Injection defense | decided: the layered model of the specification |
 | 5 | Federation | proposed: XMPP + A2A gateway |
 | 6 | Priority | decided: start CM0–CM1 now |
