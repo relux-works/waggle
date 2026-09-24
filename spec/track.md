@@ -1,6 +1,6 @@
 # Track: waggle (agent communication)
 
-Status: **DRAFT v4**, 2026-09-24. Specification: `spec/waggle.md` (draft v5). Continues the task-board coordination-rooms epic. Research: three notes in the private task-board repository (`skill-project-management`): the task-board messaging map, the Apiary and ax messaging map, and the agent-messaging landscape. Roadmap: parallel track CM0–CM4, high priority, starts now.
+Status: **DRAFT v4.1**, 2026-09-24. Specification: `spec/waggle.md` (draft v5.1, with Amendment A1 for board processes). Continues the task-board coordination-rooms epic. Research: three notes in the private task-board repository (`skill-project-management`): the task-board messaging map, the Apiary and ax messaging map, and the agent-messaging landscape. Roadmap: parallel track CM0–CM4, high priority, starts now.
 
 ## Why
 
@@ -48,7 +48,7 @@ Why NATS first for the internet: it already gives durable streams, acknowledgeme
 | CM0 | draft spec; `waggle` repository | merged as draft |
 | CM1 | F1 + F2; child-environment leak in task-board spawns fixed; notices and directives mapped onto message classes; doorbell through the session host | two orchestrators on one machine coordinate in a room; each cancels only its own children |
 | Lab | protocol lab beside CM1–CM2 | candidate coordination types and lease rules documented with the runs that produced them |
-| CM2 | F3 + F4 (+ F5); coordination vocabulary refined by the lab | orchestrators of 2–3 operators in different locations split scopes and negotiate over the internet; a person can watch |
+| CM2 | F3 + F4 (+ F5); coordination vocabulary refined by the lab; Amendment A1 for board processes | orchestrators of 2–3 operators in different locations split scopes and negotiate over the internet; a person can watch; a board accepts a signed approval and a signed external event, and a hand-off across boards returns its result |
 | CM3 | orchestrator → remote worker via AgentHost (Apiary stage 1) | a remote worker receives `clarify`/`cancel` and cannot send `coord`/`cmd` |
 | CM4 | other organizations: partner CAs, inspectors on by default, XMPP federation, A2A gateway, quotas | a partner coordinates in a shared room and cannot command our workers |
 
@@ -72,3 +72,4 @@ Start now, in parallel with the migration off agents-infra. CM0–CM1 need nothi
 | 9 | Protocol lab | decided: findings feed the coordination layer through reviewed changes; production authority stays outside the model |
 | 10 | Delivery into sessions | decided: through the session-host module's notice injection |
 | 11 | Board-server mailbox | decided: not revived |
+| 12 | Board processes | direction decided 2026-09-24: Amendment A1 of the specification adds board acts (approvals, relaxations, human transitions), signed external events from service principals (`svc:`), the hand-off result, and user verification in board policy (`required` by default once a project sets a signature policy); implemented with CM2 |
