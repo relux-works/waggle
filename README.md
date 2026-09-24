@@ -10,7 +10,7 @@ A secure agent coordination and communication protocol: signed messages between 
 
 | Path | Contents |
 | --- | --- |
-| [`spec/waggle.md`](spec/waggle.md) | the specification (draft v5.1): two layers; principals and roster, envelope and multi-signature, verification pipeline, signature policy, signer providers and key assurance, message classes, injection defense, conversation model, providers and their capabilities, delivery through the session host; coordination vocabulary and quorum decisions, scope leases, the protocol lab; phases; Amendment A1 for board processes (board acts, signed external events, service principals, the hand-off result, user verification in board policy, delegation) |
+| [`spec/waggle.md`](spec/waggle.md) | the specification (draft v5.1): two layers; principals and roster, envelope and multi-signature, verification pipeline, signature policy, signer providers and key assurance, message classes, injection defense, conversation model, providers and their capabilities, delivery through the session host; coordination vocabulary and quorum decisions, scope leases, the protocol lab; phases; Amendment A1 for board processes (board acts, confirmations of process versions, signed external events, service principals, the hand-off result, user verification in board policy, the companion app, delegation) |
 | [`spec/track.md`](spec/track.md) | the delivery track: why, the design on one screen, the fast path to internet coordination, milestones CM0–CM4, decisions |
 | [`spec/waggle.ru.md`](spec/waggle.ru.md), [`spec/track.ru.md`](spec/track.ru.md) | Russian translations; the English files are canonical |
 
@@ -28,7 +28,7 @@ A secure agent coordination and communication protocol: signed messages between 
 
 - **task-board**: orchestrator and worker messaging through `task-board mail`. It will consume this module through `go.mod` at tags, the same way it consumes [skill-agents-management](https://github.com/relux-works/skill-agents-management).
 - **Apiary** (later): the agent host and coordinator of the Curator agent runtime.
-- **Process configuration** ([curator-playbook](https://github.com/relux-works/curator-playbook)): board approvals, delegated acts, signed external events and hand-off results across boards (Amendment A1).
+- **Process configuration** ([curator-playbook](https://github.com/relux-works/curator-playbook)): board approvals, delegated acts, confirmations of process versions, signed external events and hand-off results across boards (Amendment A1).
 
 ## Links
 
