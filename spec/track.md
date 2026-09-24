@@ -54,7 +54,7 @@ Why NATS first for the internet: it already gives durable streams, acknowledgeme
 
 ## Priority in words
 
-Start now, in parallel with the migration off agents-infra. CM0–CM1 need nothing from the migration except the `waggle` repository and the session host's notice injection; the session-host module is extracted from task-board's session daemon for other reasons too (goals for more harnesses, one entry door for sessions), so CM1 lands with or right after that extraction and their pull requests are sequenced. CM2 follows CM1 directly: internet coordination is the goal. The protocol lab runs beside them. CM3 lands with Apiary stage 1; CM4 comes with the first external organization.
+Start now, in parallel with the migration off agents-infra. CM0–CM1 need nothing from the migration except the `waggle` repository and the session host's notice injection. The session-host module is extracted from task-board's session daemon for other reasons too (goals for more harnesses, one entry door for sessions), so CM1 lands with or right after that extraction, and their pull requests are sequenced. CM2 follows CM1 directly: internet coordination is the goal. The protocol lab runs beside them. CM3 lands with Apiary stage 1; CM4 comes with the first external organization.
 
 ## Decisions
 

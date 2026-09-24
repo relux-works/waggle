@@ -12,6 +12,7 @@ A secure agent coordination and communication protocol: signed messages between 
 | --- | --- |
 | [`spec/waggle.md`](spec/waggle.md) | the specification (draft v5): two layers; principals and roster, envelope and multi-signature, verification pipeline, signature policy, signer providers and key assurance, message classes, injection defense, conversation model, providers and their capabilities, delivery through the session host; coordination vocabulary and quorum decisions, scope leases, the protocol lab; phases |
 | [`spec/track.md`](spec/track.md) | the delivery track: why, the design on one screen, the fast path to internet coordination, milestones CM0–CM4, decisions |
+| [`spec/waggle.ru.md`](spec/waggle.ru.md), [`spec/track.ru.md`](spec/track.ru.md) | Russian translations; the English files are canonical |
 
 ## Design in brief
 
@@ -32,6 +33,7 @@ A secure agent coordination and communication protocol: signed messages between 
 
 - Specification: [`spec/waggle.md`](spec/waggle.md)
 - Track and milestones: [`spec/track.md`](spec/track.md)
+- In Russian: [`spec/waggle.ru.md`](spec/waggle.ru.md), [`spec/track.ru.md`](spec/track.ru.md)
 - The SSHSIG format used by `ssh-keygen -Y sign` and `-Y verify`: [PROTOCOL.sshsig](https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.sshsig)
 
 ## License

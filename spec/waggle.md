@@ -226,7 +226,7 @@ fallback = { min_assurance = "software", require = "second-approver" }
 
 ## 6. Example of multi-signature in use
 
-Alpha (Alice's orchestrator) wants to halt a worker that Beta (Bob's orchestrator) launched, because it is about to integrate onto a broken base. Alpha's lease does not cover that worker, so a plain `cmd.halt` from Alpha is refused. Policy requires an operator approval with user verification. Alpha composes the halt; the host holds it as `pending-signatures` and shows Alice a prompt; Alice runs `task-board mail approve 0192f7`, reads the rendered payload, touches the FIDO key; the envelope now carries Alpha's `author` signature and Alice's `approver` signature with the user-verified flag. Bob's host verifies both, sees that an operator physically approved, halts the worker and sends a receipt. Anyone can later check that it was Alice, not only Alpha.
+Alpha (Alice's orchestrator) wants to halt a worker that Beta (Bob's orchestrator) launched, because it is about to integrate onto a broken base. Alpha's lease does not cover that worker, so a plain `cmd.halt` from Alpha is refused. Policy requires an operator approval with user verification. Alpha composes the halt. The host holds it as `pending-signatures` and shows Alice a prompt. Alice runs `task-board mail approve 0192f7`, reads the rendered payload and touches the FIDO key. The envelope now carries Alpha's `author` signature and Alice's `approver` signature with the user-verified flag. Bob's host verifies both, sees that an operator physically approved, halts the worker and sends a receipt. Anyone can later check that it was Alice, not only Alpha.
 
 ## 7. Injection defense in depth
 
@@ -362,9 +362,9 @@ The coordination layer turns messages into agreements. The v1 vocabulary is the 
 | Decide together | — | `support` and a `decide` record carrying the supporting signatures |
 | Lead a room or scope | the lease holder with the highest term | — |
 
-**Decisions by quorum**, after the honeybee swarm: a proposal (the scout's dance) states an option with its evidence; participants send `support` or `objection` (the stop signal that damps competing dancers); when the support for one option reaches the quorum that the policy sets for that decision type, any participant may publish a `decide` record whose envelope carries the supporting signatures (multi-signature, §4.1). A decision is therefore checkable by anyone who holds the roster, and a model's reading of the thread never substitutes for the record.
+**Decisions by quorum**, after the honeybee swarm. A proposal (the scout's dance) states an option with its evidence. Participants send `support` or `objection` (the stop signal that damps competing dancers). When the support for one option reaches the quorum that the policy sets for that decision type, any participant may publish a `decide` record whose envelope carries the supporting signatures (multi-signature, §4.1). Anyone who holds the roster can therefore check a decision, and a model's reading of the thread never substitutes for the record.
 
-**Leadership** is lease ownership: whoever holds the lease of a room or scope with the highest term leads it; losing the lease (expiry, handoff, a higher term elsewhere) ends the leadership, and messages signed under the old term are refused.
+**Leadership** is lease ownership: whoever holds the lease of a room or scope with the highest term leads it. Losing the lease (expiry, handoff, a higher term elsewhere) ends the leadership, and messages signed under the old term are refused.
 
 ## 12. Scope leases
 
