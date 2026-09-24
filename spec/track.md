@@ -48,7 +48,7 @@ Why NATS first for the internet: it already gives durable streams, acknowledgeme
 | CM0 | draft spec; `waggle` repository | merged as draft |
 | CM1 | F1 + F2; child-environment leak in task-board spawns fixed; notices and directives mapped onto message classes; doorbell through the session host | two orchestrators on one machine coordinate in a room; each cancels only its own children |
 | Lab | protocol lab beside CM1–CM2 | candidate coordination types and lease rules documented with the runs that produced them |
-| CM2 | F3 + F4 (+ F5); coordination vocabulary refined by the lab; Amendment A1 for board processes | orchestrators of 2–3 operators in different locations split scopes and negotiate over the internet; a person can watch; a board accepts a signed approval and a signed external event, and a hand-off across boards returns its result |
+| CM2 | F3 + F4 (+ F5); coordination vocabulary refined by the lab; Amendment A1 for board processes | orchestrators of 2–3 operators in different locations split scopes and negotiate over the internet; a person can watch; a board accepts a signed approval bound to the values it approved and a signed external event, and a hand-off across boards returns a host-signed result |
 | CM3 | orchestrator → remote worker via AgentHost (Apiary stage 1) | a remote worker receives `clarify`/`cancel` and cannot send `coord`/`cmd` |
 | CM4 | other organizations: partner CAs, inspectors on by default, XMPP federation, A2A gateway, quotas | a partner coordinates in a shared room and cannot command our workers |
 
@@ -72,4 +72,4 @@ Start now, in parallel with the migration off agents-infra. CM0–CM1 need nothi
 | 9 | Protocol lab | decided: findings feed the coordination layer through reviewed changes; production authority stays outside the model |
 | 10 | Delivery into sessions | decided: through the session-host module's notice injection |
 | 11 | Board-server mailbox | decided: not revived |
-| 12 | Board processes | direction decided 2026-09-24: Amendment A1 of the specification adds board acts (approvals, relaxations, human transitions), signed external events from service principals (`svc:`), the hand-off result, and user verification in board policy (`required` by default once a project sets a signature policy); implemented with CM2 |
+| 12 | Board processes | direction decided 2026-09-24: Amendment A1 of the specification adds board acts (approvals, relaxations, human transitions), signed external events from service principals (`svc:`), the hand-off result signed by the receiving board's host, and user verification in board policy (`required` by default for approvals, relaxations and halts once a project sets a signature policy, with `hardware-bound` keys as the floor); implemented with CM2 |

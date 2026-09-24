@@ -76,7 +76,7 @@ host:*@acme cert-authority,namespaces="receipt.v1@waggle" ssh-ed25519 AAAA…
 
 Optional for larger teams: operators get short-lived operator certificates from a team CA kept on a hardware key (`op:*@acme cert-authority,…` with the team CA), so rotating an operator key needs no pull request.
 
-Amendment A1 adds the service principal kind `svc:` for bridges that sign external events (§19.3).
+Amendment A1 adds the service principal kind `svc:` for bridges that sign external events (§19.3), and admits host keys for hand-off results only (§19.4).
 
 ### 3.1 Lessons adopted from SSH certificate practice
 
@@ -441,11 +441,11 @@ Always: children never receive carrier credentials or the parent's manager varia
 | 12 | Protocol lab | decided: its findings feed the coordination layer through reviewed changes; production authority stays outside the model (§13) |
 | 13 | Delivery into sessions | decided: through the session-host module's notice injection (working name `agent-session-host`), no harness-specific code in waggle (§10) |
 | 14 | Board-server mailbox | decided: not revived (§9.3) |
-| 15 | Board processes | direction decided 2026-09-24: Amendment A1 (§19), implemented with CM2: board acts (approvals, relaxations, human transitions), signed external events from service principals, the hand-off result, and user verification in board policy, `required` by default once a project sets a signature policy |
+| 15 | Board processes | direction decided 2026-09-24: Amendment A1 (§19), implemented with CM2: board acts (approvals, relaxations, human transitions), signed external events from service principals, the hand-off result signed by the receiving board's host, and user verification in board policy, `required` by default for approvals, relaxations and halts once a project sets a signature policy, with `hardware-bound` keys as the floor |
 
 ## 19. Amendment A1: board processes
 
-Status: direction accepted 2026-09-24; implemented with CM2 (§17). Consumer: the process-configuration specification in [relux-works/curator-playbook](https://github.com/relux-works/curator-playbook) (`spec/process-configuration.md` §4.2, §6.4, §6.5, §6.9). A1 adds two classes, one principal kind, one `coord` type and one policy field. Nothing in §1–§18 changes meaning.
+Status: direction accepted 2026-09-24; implemented with CM2 (§17). Consumer: the process-configuration specification in [relux-works/curator-playbook](https://github.com/relux-works/curator-playbook) (`spec/process-configuration.md` §4.2, §6.4, §6.5, §6.9). A1 adds two classes, one principal kind, one `coord` type with its own host namespace, and one policy field. Nothing in §1–§18 changes meaning.
 
 A process configuration lets a board decide who may move work: a person approves a purchase, a supplier's system confirms an order, another process returns its result. Before A1 none of these had a waggle form. A verifier following §4.3 had to refuse each of them, or the board had to verify them by rules waggle did not define.
 
@@ -459,16 +459,21 @@ A new class, `board`, carries the acts of people on a board. Its author namespac
 | `board.relax` | a temporary exception to a role's hard requirement: an `ask` a person answered | `relaxations` |
 | `board.transition` | a transition a person fires: out of a human-owned state, an override of a tool- or process-owned state, or a transition marked with a `risk` | `human-transitions`, `overrides`, `spending`, `halts` |
 
-- **The approver signature is the human act.** The author is whoever composed the request: usually the orchestrator session that asks for the approval. An operator acting alone signs both roles. The board counts only the `approver` signature, and only from a principal in the group of the human role the act concerns (the project's `people` map), read at the pinned revision of the project's process configuration. A quorum counts distinct approver principals present in the roster at that revision.
+- **The approver signature is the human act.** The author is whoever composed the request: usually the orchestrator session that asks for the approval. An operator acting alone signs both roles. The board counts only the `approver` signature, read against the project's process configuration at its pinned revision, and only from the approver set of the act's type:
+  - `board.approve`: a principal in the group of the human role the approval is recorded as (the project's `people` map);
+  - `board.relax`: the operator whose runs the exception covers, present in `people`; an exception never reaches another operator's runs;
+  - `board.transition`: for a human-owned state, a principal in the group of the role that owns it; for an override of a tool- or process-owned state, or of a landing whose hosted checks could not run, any principal in `people`; for a transition marked with a `risk`, the group of the role that owns its source state, or any principal in `people` when an agent owns it.
+
+  A quorum counts distinct approver principals present in the roster at that revision.
 - **The payload binds everything the act depends on**, inside the signed bytes:
   - the board and the element;
   - the state the act concerns and that state's entry number;
   - the act itself: the role approved as, the transition, or the requirement relaxed with its scope and expiry;
-  - the evaluated revision: the commit and semantic digest of the process configuration in force, and for work under a Change Request the revision under evaluation;
+  - the evaluated revision: the semantic digest of the resolved process configuration in force, and for work under a Change Request the revision under evaluation. The digest, not the commit, is bound, so a landing that leaves the resolved configuration unchanged keeps a pending act valid;
   - the approver principal, in `signers.approver`;
-  - the element fields shown to the approver.
+  - the element fields shown to the approver, which include at least every field that the guards of the act's transition read, with their values.
 
-  An approval therefore cannot be replayed after the element enters the state again, against another revision, or for another amount.
+  An approval therefore cannot be replayed after the element enters the state again, against another configuration or revision, or for another amount: the board compares the bound values with the element's current ones (§19.7).
 - **What you see is what you sign.** A board act is signed only through the operator-facing approve command (§4.2, `task-board mail approve`). The command renders every body field, including the element fields shown, before the key signs. An agent never holds an operator key.
 - **Addressing.** A board act has no `to`. The board named in `body.board` consumes it, whether it arrives through that board's local command or over a carrier.
 
@@ -488,7 +493,7 @@ A new class, `board`, carries the acts of people on a board. Its author namespac
     "state": "approval",
     "entry": 2,
     "act": { "approve": { "role": "manager" } },
-    "revision": { "process": { "commit": "3f9c2a…", "digest": "sha256:9d41…" } },
+    "revision": { "process": { "digest": "sha256:9d41…" } },
     "shown": { "supplier": "Milk & Co", "amount": "620.00 EUR" }
   }
 }
@@ -541,10 +546,12 @@ svc:*@acme cert-authority,namespaces="event.v1@waggle" ssh-ed25519 AAAA…
 
 ### 19.4 The hand-off result
 
-`coord` gains one type, `handoff-result`. It closes the hand-off that `handoff-offer` and `handoff-accept` open. When the element the accepting process created from the offer reaches a terminal state, that process's orchestrator sends the result to the offering orchestrator.
+`coord` gains one type, `handoff-result`. It closes the hand-off that `handoff-offer` and `handoff-accept` open. When the element the accepting process created from the offer reaches a terminal state, the receiving board's kernel reports the result to the offering orchestrator.
 
-- **Body.** The offer (`offer`, the id of the `handoff-offer`); the received element and its board; its final state and resolution; a bounded summary. `reply_to` is the id of the `handoff-accept`.
-- **Author.** The orchestrator that accepted the offer, or, if the scope's lease has moved, its holder with a higher term (§12).
+- **Not a model's claim.** An orchestrator session is an agent, and what it writes proves who said it, not that it is true. The result therefore comes from the receiving board's kernel, which observes the terminal transition, and is signed with a host key of that board, a key no orchestrator session holds.
+- **Author and namespace.** A `host:` principal of the receiving board, under the namespace `result.coord.v1@waggle`. Only `host:` roster lines admit that namespace, and `handoff-result` is the only type it signs: the verifier refuses a `handoff-result` signed under `coord.v1@waggle`, and a host signature on any other `coord` type.
+- **Body.** The offer (`offer`, the id of the `handoff-offer`); the received element and its board; its final state and resolution; the receiving board's revision (its board-state commit) at the terminal transition; the envelope ids of the signed act or event that caused that transition, when one did; a bounded summary. `reply_to` is the id of the `handoff-accept`.
+- **Verification.** The offering board accepts the result only from a host principal that its committed project file binds to the receiving board (process-configuration §6.5; the binding form comes with cross-board hand-off).
 - **One result per offer.** A second result for the same offer with other bytes is refused as a conflicting duplicate.
 - **Effect.** The offering board turns a verified `handoff-result` into the `process.returned` event on the offering element, whose `process.result` guards match the final state (process-configuration §6.5).
 
@@ -553,7 +560,7 @@ svc:*@acme cert-authority,namespaces="event.v1@waggle" ssh-ed25519 AAAA…
   "schema": "waggle-v1",
   "type": "coord.handoff-result",
   "id": "0192f9c4-7d1e-7a2b-9c3d-4e5f6a7b8c9d",
-  "from": "orch:books@acme",
+  "from": "host:books-1@acme",
   "to": "orch:cafe@acme",
   "project": "acme",
   "reply_to": "0192f8e0-1a2b-7c3d-8e4f-5a6b7c8d9e0f",
@@ -564,6 +571,8 @@ svc:*@acme cert-authority,namespaces="event.v1@waggle" ssh-ed25519 AAAA…
     "element": { "board": "acme/books", "id": "INV-2087" },
     "final_state": "paid",
     "resolution": null,
+    "board_revision": "7c1e0b…",
+    "caused_by": ["5b0e4f1c-9a2d-5c7e-b3f8-1d6a0e9c4b27"],
     "summary": "paid in full"
   }
 }
@@ -576,11 +585,17 @@ The process configuration names which board acts need a signature (`policy.signa
 - `required`: the approver signature must be a FIDO2 signature whose authenticator flags say the user was verified (PIN or fingerprint). This is the requirement §4.4 spells as `key = "sk"` with `user_verification = true`; new policies spell it `user_verified = "required"`.
 - `if-supported`: the flag is required when the signature format carries it; other signatures that meet `min_assurance` are accepted.
 
-**Default.** Whenever a project sets a signature policy, `user_verified` is `required` for approvals (`board.approve`), relaxations (`board.relax`) and halts: `cmd.halt` and `cmd.cancel` to runs of the process, and transitions marked `risk: halt`. The project may lower it to `if-supported`.
+**Defaults.** Whenever a project sets a signature policy:
+
+- `min_assurance` is `hardware-bound`, because any process running as the operator's OS user can obtain `software` signatures from `ssh-agent`;
+- `user_verified` is `required` for approvals (`board.approve`), relaxations (`board.relax`) and halts: `cmd.halt` and `cmd.cancel` to runs of the process, and transitions marked `risk: halt`;
+- `user_verified` is `if-supported` for spending, overrides and other human transitions (`board.transition`).
+
+The project may set `user_verified` for every category at once or per category, and may lower `required` to `if-supported`. With the default `min_assurance`, `if-supported` admits Secure Enclave and other hardware-bound keys, never software keys.
 
 **Why the default is strict.** Only a FIDO2 signature with the user-verified flag shows that a person acted. Any process running as the operator's OS user can obtain `software` signatures from `ssh-agent`, and `hardware-bound` ones whenever the key does not demand presence for each use. A Secure Enclave key protects the key, which cannot be copied, but not presence: a Touch ID prompt, when the key's policy asks for one, leaves no trace in the signature (§4.4, §4.5). An operator whose keys cannot show user verification approves with a FIDO key, or the project lowers the requirement.
 
-**Which policy applies.** For `board` types the requirements come from the project's process configuration at its pinned revision. Entries for the same types in `.waggle/policy.toml` may only add requirements; where both speak, the stricter wins.
+**Which policy applies.** For `board` types, and for `cmd.halt` and `cmd.cancel` sent to runs of a process, the requirements come from the project's process configuration at its pinned revision. Entries for the same types in `.waggle/policy.toml` may only add requirements; where both speak, the stricter wins.
 
 ### 19.6 Roster and classes, summarized
 
@@ -588,16 +603,17 @@ The process configuration names which board acts need a signature (`policy.signa
 | --- | --- | --- |
 | `board.v1@waggle` (approver: `approve.board.v1@waggle`) | `approve`, `relax`, `transition` | orchestrator session or operator → the board named in the body; the operator's approver signature is the act |
 | `event.v1@waggle` | `post` | service (bridge) → the board named in the body |
-| `coord.v1@waggle` (added type) | `handoff-result` | accepting orchestrator → offering orchestrator |
+| `result.coord.v1@waggle` (added type `coord.handoff-result`) | `handoff-result` | the receiving board's host → offering orchestrator |
 
-- Operator roster lines add `board.v1@waggle,approve.board.v1@waggle`. Orchestrator session lines add `board.v1@waggle` as author only, never `approve.board`.
-- Worker and host lines gain nothing: a worker key still cannot produce any of these signatures.
+- Operator roster lines add `board.v1@waggle,approve.board.v1@waggle`. Orchestrator session lines add `board.v1@waggle` as author only, never `approve.board`, and never `result.coord`.
+- Host lines add `result.coord.v1@waggle`, for hand-off results only.
+- Worker lines gain nothing: a worker key still cannot produce any of these signatures.
 
 ### 19.7 What stays with the board
 
 waggle provides the forms, verification and delivery. The board decides what they mean (process-configuration §4.2, §6.3–§6.5, §6.9):
 - which act a guard counts;
-- freshness: an approval counts only for the state entry it names and, under a Change Request, for the revision it names;
+- freshness: an approval counts only for the state entry it names, under a Change Request only for the revision it names, only while the configuration digest it binds is the one in force, and only while the element's fields still hold the values it binds;
 - quorum over distinct principals;
 - which signer group may post which event;
 - how accepted events are kept;
