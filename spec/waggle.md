@@ -589,7 +589,7 @@ svc:*@acme cert-authority,namespaces="event.v1@waggle" ssh-ed25519 AAAA…
 
 The process configuration names which board acts need a signature (`policy.signatures`). It uses waggle's two key requirements (§4.4, §4.5): `min_assurance` (`software`, `hardware-bound`, `attested`) and `user_verified`:
 
-- `required`: the approver signature must be a FIDO2 signature whose authenticator flags say the user was verified (PIN or fingerprint). This is the requirement §4.4 spells as `key = "sk"` with `user_verification = true`; new policies spell it `user_verified = "required"`.
+- `required`: the approver signature must be a FIDO2 signature whose authenticator flags say the user was verified (PIN or fingerprint), or a signature from an enrolled companion key (below). The FIDO2 form is the requirement §4.4 spells as `key = "sk"` with `user_verification = true`; new policies spell it `user_verified = "required"`.
 - `if-supported`: the flag is required when the signature format carries it; other signatures that meet `min_assurance` are accepted.
 
 **Defaults.** Whenever a project sets a signature policy:
@@ -600,7 +600,15 @@ The process configuration names which board acts need a signature (`policy.signa
 
 The project may set `user_verified` for every category at once or per category, and may lower `required` to `if-supported`. With the default `min_assurance`, `if-supported` admits Secure Enclave and other hardware-bound keys, never software keys.
 
-**Why the default is strict.** Only a FIDO2 signature with the user-verified flag shows that a person acted. Any process running as the operator's OS user can obtain `software` signatures from `ssh-agent`, and `hardware-bound` ones whenever the key does not demand presence for each use. A Secure Enclave key protects the key, which cannot be copied, but not presence: a Touch ID prompt, when the key's policy asks for one, leaves no trace in the signature (§4.4, §4.5). An operator whose keys cannot show user verification approves with a FIDO key, or the project lowers the requirement.
+**Why the default is strict.** Only a FIDO2 signature with the user-verified flag, or a signature from an enrolled companion key (below), shows that a person acted. Any process running as the operator's OS user can obtain `software` signatures from `ssh-agent`, and `hardware-bound` ones whenever the key does not demand presence for each use. A Secure Enclave key protects the key, which cannot be copied, but not presence: a Touch ID prompt, when the key's policy asks for one, leaves no trace in the signature (§4.4, §4.5). An operator whose keys cannot show user verification approves with a FIDO key, or the project lowers the requirement.
+
+**The operator companion app** (decided 2026-09-24) is a second way to meet `required`, and the common one for a headless node. It is a signer provider (§4.5) on the operator's phone:
+
+- its key lives in the phone's Secure Enclave or Android Keystore, and the app uses it only after the person authenticates on the phone with biometrics and has seen the rendered payload;
+- the key is enrolled with attestation that a genuine companion app generated it in the phone's secure hardware, which gives it the assurance `attested`; its enrollment record carries `user_verification = "app-enforced"`;
+- the app is paired with the node at initialization through an out-of-band handshake that pins keys on both sides, and requests reach it over the operator's tailnet or a relay that sees only messages encrypted end to end to the pinned keys.
+
+A signature from an enrolled companion key meets `user_verified = "required"`: the user verification is enforced by the attested app rather than written into the signature, and the enrollment record says so. The app's design, transport and platforms are open in the process-configuration specification (§17.3); until it exists, board acts are signed on the machine.
 
 **Which policy applies.** For `board` types, and for `cmd.halt` and `cmd.cancel` sent to runs of a process, the requirements come from the project's process configuration at its pinned revision. Entries for the same types in `.waggle/policy.toml` may only add requirements; where both speak, the stricter wins.
 
