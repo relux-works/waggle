@@ -1,6 +1,6 @@
 # waggle: agent communication specification
 
-Status: **DRAFT v5.1**, 2026-09-24. Not normative. Track document: `spec/track.md`. Evidence: research notes in the private task-board repository (`skill-project-management`): the task-board messaging map (*TM*), the Apiary and ax messaging map (*AX*) and the agent-messaging landscape (*LS*). Continues the task-board coordination-rooms epic. v5.1 adds Amendment A1 (§19) with what board processes need: signed approvals, relaxations and human transitions on a board; signed external events from service principals; the hand-off result; user verification in board policy. The direction of A1 is accepted, and it is implemented with CM2. v5 splits the protocol into a communication layer and a coordination layer, and adds the conversation model and the provider interface, the protocol lab, delivery through the session-host module and the placement of the internet carrier; v4 of the same day added signer providers.
+Status: **DRAFT v5.1**, 2026-09-24. Not normative. Track document: `spec/track.md`. Evidence: research notes in the private task-board repository (`skill-project-management`): the task-board messaging map (*TM*), the Apiary and ax messaging map (*AX*) and the agent-messaging landscape (*LS*). Continues the task-board coordination-rooms epic. v5.1 adds Amendment A1 (§19) with what board processes need: signed approvals, relaxations and human transitions on a board; signed external events from service principals; the hand-off result; user verification in board policy; delegation of board acts to orchestrator roles. The direction of A1 is accepted, and it is implemented with CM2. v5 splits the protocol into a communication layer and a coordination layer, and adds the conversation model and the provider interface, the protocol lab, delivery through the session-host module and the placement of the internet carrier; v4 of the same day added signer providers.
 
 Published as a draft for review; nothing here is implemented yet.
 
@@ -441,11 +441,11 @@ Always: children never receive carrier credentials or the parent's manager varia
 | 12 | Protocol lab | decided: its findings feed the coordination layer through reviewed changes; production authority stays outside the model (§13) |
 | 13 | Delivery into sessions | decided: through the session-host module's notice injection (working name `agent-session-host`), no harness-specific code in waggle (§10) |
 | 14 | Board-server mailbox | decided: not revived (§9.3) |
-| 15 | Board processes | direction decided 2026-09-24: Amendment A1 (§19), implemented with CM2: board acts (approvals, relaxations, human transitions), signed external events from service principals, the hand-off result signed by the receiving board's host, and user verification in board policy, `required` by default for approvals, relaxations and halts once a project sets a signature policy, with `hardware-bound` keys as the floor |
+| 15 | Board processes | direction decided 2026-09-24: Amendment A1 (§19), implemented with CM2: board acts (approvals, relaxations, human transitions), signed external events from service principals, the hand-off result signed by the receiving board's host, user verification in board policy, `required` by default for approvals, relaxations, delegations and halts once a project sets a signature policy, with `hardware-bound` keys as the floor, and delegation of board acts to orchestrator roles within grants the board verifies (§19.8) |
 
 ## 19. Amendment A1: board processes
 
-Status: direction accepted 2026-09-24; implemented with CM2 (§17). Consumer: the process-configuration specification in [relux-works/curator-playbook](https://github.com/relux-works/curator-playbook) (`spec/process-configuration.md` §4.2, §6.4, §6.5, §6.9). A1 adds two classes, one principal kind, one `coord` type with its own host namespace, and one policy field. Nothing in §1–§18 changes meaning.
+Status: direction accepted 2026-09-24; implemented with CM2 (§17). Consumer: the process-configuration specification in [relux-works/curator-playbook](https://github.com/relux-works/curator-playbook) (`spec/process-configuration.md` §4.2, §6.4, §6.5, §6.9). A1 adds two classes, one principal kind, one `coord` type with its own host namespace, one policy field, and delegation: two board types for granting and revoking it and one delegate namespace (§19.8). Nothing in §1–§18 changes meaning.
 
 A process configuration lets a board decide who may move work: a person approves a purchase, a supplier's system confirms an order, another process returns its result. Before A1 none of these had a waggle form. A verifier following §4.3 had to refuse each of them, or the board had to verify them by rules waggle did not define.
 
@@ -458,11 +458,15 @@ A new class, `board`, carries the acts of people on a board. Its author namespac
 | `board.approve` | an approval that an `approvals` guard counts | `approvals` |
 | `board.relax` | a temporary exception to a role's hard requirement: an `ask` a person answered | `relaxations` |
 | `board.transition` | a transition a person fires: out of a human-owned state, an override of a tool- or process-owned state, or a transition marked with a `risk` | `human-transitions`, `overrides`, `spending`, `halts` |
+| `board.delegate` | a person's grant of named board acts to an orchestrator role, with its conditions, scope, expiry and budgets (§19.8) | `delegations` |
+| `board.revoke` | the revocation of a delegation (§19.8) | `delegations` |
 
 - **The approver signature is the human act.** The author is whoever composed the request: usually the orchestrator session that asks for the approval. An operator acting alone signs both roles. The board counts only the `approver` signature, read against the project's process configuration at its pinned revision, and only from the approver set of the act's type:
   - `board.approve`: a principal in the group of the human role the approval is recorded as (the project's `people` map);
   - `board.relax`: the operator whose runs the exception covers, present in `people`; an exception never reaches another operator's runs;
-  - `board.transition`: for a human-owned state, a principal in the group of the role that owns it; for an override of a tool- or process-owned state, or of a landing whose hosted checks could not run, any principal in `people`; for a transition marked with a `risk`, the group of the role that owns its source state, or any principal in `people` when an agent owns it.
+  - `board.transition`: for a human-owned state, a principal in the group of the role that owns it; for an override of a tool- or process-owned state, or of a landing whose hosted checks could not run, any principal in `people`; for a transition marked with a `risk`, the group of the role that owns its source state, or any principal in `people` when an agent owns it;
+  - `board.delegate`: a principal who may perform every act the grant covers, by the rules above;
+  - `board.revoke`: the grantor, or any principal in `people`, because a revocation only narrows authority.
 
   A quorum counts distinct approver principals present in the roster at that revision.
 - **The payload binds everything the act depends on**, inside the signed bytes:
@@ -588,7 +592,7 @@ The process configuration names which board acts need a signature (`policy.signa
 **Defaults.** Whenever a project sets a signature policy:
 
 - `min_assurance` is `hardware-bound`, because any process running as the operator's OS user can obtain `software` signatures from `ssh-agent`;
-- `user_verified` is `required` for approvals (`board.approve`), relaxations (`board.relax`) and halts: `cmd.halt` and `cmd.cancel` to runs of the process, and transitions marked `risk: halt`;
+- `user_verified` is `required` for approvals (`board.approve`), relaxations (`board.relax`), delegations (`board.delegate`, `board.revoke`) and halts: `cmd.halt` and `cmd.cancel` to runs of the process, and transitions marked `risk: halt`;
 - `user_verified` is `if-supported` for spending, overrides and other human transitions (`board.transition`).
 
 The project may set `user_verified` for every category at once or per category, and may lower `required` to `if-supported`. With the default `min_assurance`, `if-supported` admits Secure Enclave and other hardware-bound keys, never software keys.
@@ -601,11 +605,12 @@ The project may set `user_verified` for every category at once or per category, 
 
 | Namespace (author role) | Types | Who may send → to whom |
 | --- | --- | --- |
-| `board.v1@waggle` (approver: `approve.board.v1@waggle`) | `approve`, `relax`, `transition` | orchestrator session or operator → the board named in the body; the operator's approver signature is the act |
+| `board.v1@waggle` (approver: `approve.board.v1@waggle`) | `approve`, `relax`, `transition`, `delegate`, `revoke` | orchestrator session or operator → the board named in the body; the operator's approver signature is the act |
+| `delegate.board.v1@waggle` (delegate role) | `approve`, `relax`, `transition` on behalf of a grantor | orchestrator session of a delegate role → the board named in the body; counted as the grantor's act only within the referenced delegation (§19.8) |
 | `event.v1@waggle` | `post` | service (bridge) → the board named in the body |
 | `result.coord.v1@waggle` (added type `coord.handoff-result`) | `handoff-result` | the receiving board's host → offering orchestrator |
 
-- Operator roster lines add `board.v1@waggle,approve.board.v1@waggle`. Orchestrator session lines add `board.v1@waggle` as author only, never `approve.board`, and never `result.coord`.
+- Operator roster lines add `board.v1@waggle,approve.board.v1@waggle`. Orchestrator session lines add `board.v1@waggle` as author only, and `delegate.board.v1@waggle`, which a verifier accepts only with a delegation that covers the act; never `approve.board`, and never `result.coord`.
 - Host lines add `result.coord.v1@waggle`, for hand-off results only.
 - Worker lines gain nothing: a worker key still cannot produce any of these signatures.
 
@@ -614,15 +619,56 @@ The project may set `user_verified` for every category at once or per category, 
 waggle provides the forms, verification and delivery. The board decides what they mean (process-configuration §4.2, §6.3–§6.5, §6.9):
 - which act a guard counts;
 - freshness: an approval counts only for the state entry it names, under a Change Request only for the revision it names, only while the configuration digest it binds is the one in force, and only while the element's fields still hold the values it binds;
-- quorum over distinct principals;
+- quorum over distinct principals, a delegated act counting for its grantor;
+- which acts may be delegated, to which roles, under which ceilings, and each delegation's conditions, scope, budgets and expiry;
 - which signer group may post which event;
 - how accepted events are kept;
 - where a returned result routes.
 
-### 19.8 Implementation
+### 19.8 Delegated acts
+
+A person may delegate named board acts to an orchestrator: approvals of a role, transitions out of human-owned states, relaxations. The process configuration says what may be delegated, to which roles and under which ceilings (process-configuration §4.2). A delegation lets autonomous work go on without a person's signature on every step, while the person keeps what the delegation leaves out.
+
+- **The grant.** A `board.delegate` act records the delegation: the grantor, the delegate role, the acts, their `field` conditions, a subtree scope, an expiry and optional budgets per period. It is a human act: the grantor's approver signature, made through the approve command, is what counts, at the policy's assurance and user verification (§19.5).
+- **The delegated act.** A `board.approve`, `board.relax` or `board.transition` made by a delegate carries no approver signature. The delegate's orchestrator session signs it in the `delegate` role, under the namespace `delegate.board.v1@waggle`, and the body names the grant: `on_behalf_of` holds the grantor and the envelope id of the `board.delegate`. A delegate signature is never an approver signature; the namespaces keep them apart.
+- **The chain the board verifies.** The board verifies:
+  1. the `board.delegate` envelope and its approver signature;
+  2. the delegate signature, whose principal belongs to the delegated role;
+  3. that the act falls inside the grant's acts, scope, conditions, budgets and expiry, and inside the project's ceilings at the pinned revision.
+
+  The board counts budgets from the delegated acts it has recorded; no signature carries budget state.
+- **Certificate form.** A grantor may instead certify the delegate's session key directly: an OpenSSH certificate signed by the grantor's key, whose key id names the delegation and whose critical option `delegation@waggle` carries the grant's envelope id. It is valid no later than the grant expires. A verifier accepts it only when the grantor's roster line admits certifying for `delegate.board.v1@waggle` and the certificate's constraints match the grant. The reference form works on every carrier; the certificate form lets a delegate prove its authority without the record being fetched.
+- **Revocation.** A `board.revoke` act ends a delegation at once. The board refuses delegated acts under it that arrive later; acts it accepted before stay valid. In the certificate form, short certificate lifetimes bound the exposure further.
+- **Everything else waits for the person.** An act the delegation does not cover is not taken. The board notifies the grantor, and the grantor signs the act, or does not.
+
+```json
+{
+  "schema": "waggle-v1",
+  "type": "board.approve",
+  "id": "0192fa01-5b6c-7d8e-9f0a-1b2c3d4e5f60",
+  "from": "orch:cafe@acme",
+  "signers": { "delegate": "orch:cafe@acme" },
+  "project": "acme",
+  "issued_at": 1790000000000,
+  "expires_at": 1790086400000,
+  "body": {
+    "board": "acme/cafe",
+    "element": "PO-1043",
+    "state": "approval",
+    "entry": 1,
+    "act": { "approve": { "role": "manager" } },
+    "on_behalf_of": { "grantor": "op:alice@acme", "delegation": "0192f7aa-0b1c-7d2e-8f3a-4b5c6d7e8f90" },
+    "revision": { "process": { "digest": "sha256:9d41…" } },
+    "shown": { "supplier": "Milk & Co", "amount": "180.00 EUR" }
+  }
+}
+```
+
+### 19.9 Implementation
 
 With CM2 (§17):
 - the verification pipeline gains the `board` and `event` classes, the `svc:` kind and the `user_verified` policy field;
+- the board types `board.delegate` and `board.revoke`, the `delegate.board.v1@waggle` namespace, and verification of the delegation chain in both forms;
 - the approve command renders board acts;
 - the board verifies `event.post` from `task-board event post` and from bridges;
 - a hand-off across boards runs `handoff-offer`, `handoff-accept` and `handoff-result` over the CM2 carrier.
