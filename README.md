@@ -10,7 +10,7 @@ A secure agent coordination and communication protocol: signed messages between 
 
 | Path | Contents |
 | --- | --- |
-| [`spec/waggle.md`](spec/waggle.md) | the specification (draft v4): principals and roster, envelope and multi-signature, verification pipeline, signature policy, signer providers and key assurance, message classes, injection defense, delivery, mailboxes, scope leases, carriers, phases |
+| [`spec/waggle.md`](spec/waggle.md) | the specification (draft v5): two layers; principals and roster, envelope and multi-signature, verification pipeline, signature policy, signer providers and key assurance, message classes, injection defense, conversation model, providers and their capabilities, delivery through the session host; coordination vocabulary and quorum decisions, scope leases, the protocol lab; phases |
 | [`spec/track.md`](spec/track.md) | the delivery track: why, the design on one screen, the fast path to internet coordination, milestones CM0–CM4, decisions |
 
 ## Design in brief
@@ -20,7 +20,8 @@ A secure agent coordination and communication protocol: signed messages between 
 - **Sessions sign, agents compose.** The host creates a short-lived certified key for each orchestrator session and signs what the agent writes; the agent never holds a key. A worker's certificate allows reports only, so a worker cannot produce a command or a coordination message over any transport.
 - **Any key hardware, one format.** Signer providers are plugins: `ssh-agent`, Apple Secure Enclave, FIDO keys, later TPM and PIV, with an ordinary key as the fallback. Each enrolled key gets an assurance level (`software`, `hardware-bound`, `attested`), and the policy says which level an approval needs.
 - **Delivery is a doorbell plus a pull, behind layered injection defense.** A fixed-template doorbell enters the agent loop and the agent pulls messages as untrusted data. Authority stays outside the model (gates, scope leases, supervisor-executed cancel and halt); inspectors, guards and quarantine are optional layers on top.
-- **Scope leases decide, messages negotiate; transports are adapters.** Orchestrators lease parts of a project with a term and a token in a compare-and-set store. Carriers deliver the signed bytes (a local mailbox, then NATS JetStream for the internet, XMPP for federation later), consoles render messages for people, and gateways (A2A) translate at the edge.
+- **Two layers.** A communication layer moves signed messages between principals; a coordination layer built on it decides who works on what, with scope leases and quorum decisions.
+- **Scope leases decide, messages negotiate; providers are untrusted pipes.** Orchestrators lease parts of a project with a term and a token in a compare-and-set store. Providers sit behind one interface: carriers deliver the signed bytes (a local mailbox, then NATS JetStream for the internet, XMPP for federation later), consoles render messages for people, gateways (A2A) translate at the edge, and chats such as Slack or Telegram can be adapters because authority comes from signatures, never from the provider.
 
 ## Consumers
 
