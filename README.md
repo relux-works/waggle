@@ -28,7 +28,7 @@ A secure agent coordination and communication protocol: signed messages between 
 
 - **task-board**: orchestrator and worker messaging through `task-board mail`. It will consume this module through `go.mod` at tags, the same way it consumes [skill-agents-management](https://github.com/relux-works/skill-agents-management).
 - **Apiary** (later): the agent host and coordinator of the Curator agent runtime.
-- **Process configuration** ([curator-playbook](https://github.com/relux-works/curator-playbook)): board approvals, delegated acts, confirmations of process versions, signed external events and hand-off results across boards (Amendment A1).
+- **Process configuration** ([curator-playbook](https://github.com/relux-works/curator-playbook)): board approvals, delegated acts, confirmations of process versions, signed external events and hand-off results across boards (Amendment A1). What those acts mean — who counts as a person, the floor of a confirmation, narrowing acts — is the trust design in [curator-trust](https://github.com/relux-works/curator-trust) (`spec/trust.md`).
 
 ## Links
 
