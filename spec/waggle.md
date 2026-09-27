@@ -1,6 +1,6 @@
 # waggle: agent communication specification
 
-Status: **DRAFT v5.1**, 2026-09-24. Not normative. Track document: `spec/track.md`. Evidence: research notes in the private task-board repository (`skill-project-management`): the task-board messaging map (*TM*), the Apiary and ax messaging map (*AX*) and the agent-messaging landscape (*LS*). Continues the task-board coordination-rooms epic. v5.1 adds Amendment A1 (§19) with what board processes need: signed approvals, relaxations and human transitions on a board; signed external events from service principals; the hand-off result; user verification in board policy; delegation of board acts to orchestrator roles. The direction of A1 is accepted, and it is implemented with CM2. v5 splits the protocol into a communication layer and a coordination layer, and adds the conversation model and the provider interface, the protocol lab, delivery through the session-host module and the placement of the internet carrier; v4 of the same day added signer providers.
+Status: **DRAFT v5.2**, 2026-09-27. Not normative. Track document: `spec/track.md`. Evidence: research notes in the private task-board repository (`skill-project-management`): the task-board messaging map (*TM*), the Apiary and ax messaging map (*AX*) and the agent-messaging landscape (*LS*). Continues the task-board coordination-rooms epic. v5.1 adds Amendment A1 (§19) with what board processes need: signed approvals, relaxations and human transitions on a board; signed external events from service principals; the hand-off result; user verification in board policy; delegation of board acts to orchestrator roles. The direction of A1 is accepted, and it is implemented with CM2. v5 splits the protocol into a communication layer and a coordination layer, and adds the conversation model and the provider interface, the protocol lab, delivery through the session-host module and the placement of the internet carrier; v4 of the same day added signer providers.
 
 Published as a draft for review; nothing here is implemented yet.
 
@@ -86,12 +86,12 @@ Amendment A1 adds the service principal kind `svc:` for bridges that sign extern
 | The CA key is the crown jewel | CA keys (operator keys acting as CAs, the optional team CA) live on hardware or in a Touch-ID-gated agent and never on disk in clear; per-operator CAs limit the blast radius |
 | Issuance must be automatic | the host asks `ssh-agent` to certify the session key once at session start; later a signing service behind SSO (Smallstep or OPKSSH style) can issue operator certificates for bigger teams |
 | Principals restrict what a certificate can do | principal patterns plus `namespaces=` per roster line; waggle-specific certificate extensions (`waggle-project@relux.works`, `waggle-role@relux.works`) bind a certificate to one project and role and are checked by the verifier |
-| Inspect before trusting | `task-board mail keys inspect <cert>` decodes a certificate like `ssh-keygen -L`; `task-board mail roster lint` flags over-broad principals and missing expiry |
+| Inspect before trusting | `task-board mail keys show <cert>` decodes a certificate like `ssh-keygen -L`; `task-board mail roster check` flags over-broad principals and missing expiry |
 | Audit every acceptance | every verified signature is logged with key id, serial and CA fingerprint, like `sshd`'s "Accepted … ID … (serial …) CA …" line |
 | Host certificates remove trust-on-first-use | hosts present certificates from the operator's key, so peers verify host receipts without pinning fingerprints |
 | Clocks drift | bounded skew on `issued_at`; the carrier's arrival time is recorded next to it |
 | OpenSSH certificates are single-level: a certificate cannot sign another certificate | chains are expressed by listing each CA key in the roster with its own principals and namespaces, and by co-signatures (§4.3) when a second party must vouch at message time |
-| Long lifetimes out of convenience and permissive principal lists are the common failures | the roster linter rejects both |
+| Long lifetimes out of convenience and permissive principal lists are the common failures | the roster check rejects both |
 
 ## 4. Where signatures live and how they are checked
 
@@ -157,7 +157,7 @@ The same pipeline runs for every provider:
 8. Run inspection (§7).
 9. Store with the verification result, ring the doorbell (§10), send a signed receipt, write the audit line (key id, serial, CA fingerprint per signature).
 
-A message failing steps 1–7 never reaches an agent; operators see it in `task-board mail rejected`. Extra signatures never grant anything beyond what the policy asks for.
+A message failing steps 1–7 never reaches an agent; operators see it in `task-board mail list --rejected`. Extra signatures never grant anything beyond what the policy asks for.
 
 ### 4.4 Signature policy and attested approval
 
@@ -242,7 +242,7 @@ Pulling content as tool output removes channel problems (nothing is typed into a
 | 3. Deterministic inspectors | size and type limits, URL and command-pattern policy, secret detection, known injection markers → `allow`, `flag`, `quarantine`, `reject` | optional (default on for external senders) |
 | 4. Model-based guard | a cheap classifier or prompt-injection detector | optional |
 | 5. Quarantined reader | a separate low-privilege model with no tools turns free text into the typed request; the orchestrator sees only the result plus a flag | optional (recommended for external senders) |
-| 6. Quarantine and human release | `task-board mail release <id>` | optional (default for external senders) |
+| 6. Quarantine and human release | `task-board mail approve <id>` releases a quarantined message; `task-board mail reject <id>` drops it | optional (default for external senders) |
 | 7. Rate limits and quotas | per principal and room | yes for CM4 |
 
 Trust tier (`own`, `team`, `external`) comes from the roster line that verified the author signature.
@@ -375,7 +375,7 @@ A lease says which orchestrator owns which part of the project right now: holder
 
 Example: Alpha (Alice) leases Epic Auth, Beta (Bob) leases Epic Billing. When Alpha tries to spawn a developer on a Billing story, task-board looks the lease up, sees Beta, and refuses with `scope_owned_by orch:beta`. To work there, Alpha sends `coord.handoff-offer` or a `coord.request`; if Beta accepts, the lease moves to Alpha with a higher term. If Alpha's session dies and comes back on another machine, the new session gets a higher term, and anything still signed under the old term is refused.
 
-The kernel checks leases at the three places where damage happens: **spawn** (starting work), **integrate** (landing code) and **board commit** (writing board state). Messages alone cannot prevent two orchestrators from working on the same story at once (a finding of the earlier coordination-rooms research); the lease can.
+The kernel checks leases at the three places where damage happens: **spawn** (starting work), **integrate** (landing code) and **board commit** (writing board state). Operators see them with `task-board lease list` and `task-board lease show <scope>`; only the kernel writes them. Messages alone cannot prevent two orchestrators from working on the same story at once (a finding of the earlier coordination-rooms research); the lease can.
 
 ## 13. Protocol lab
 
@@ -394,7 +394,7 @@ Findings become candidate coordination message types and lease rules (§11); eac
 | Step | Delivers | Kept afterwards |
 | --- | --- | --- |
 | F1 | `waggle` module: envelope, multi-signature SSHSIG via `ssh-agent` (including FIDO user verification), roster and policy, verification pipeline, receipts, audit; interop tests against `ssh-keygen -Y verify` | yes |
-| F2 | local carrier, doorbell + pull through the session host's notice injection, `task-board mail send\|read\|tail\|approve\|rooms\|rejected` | yes |
+| F2 | local carrier, doorbell + pull through the session host's notice injection, `task-board mail send\|read\|list\|show\|approve\|reject\|tail\|rooms` | yes |
 | F3 | NATS carrier as a separate tailnet-only service on a dedicated Mac mini on the operators' tailnet, clear of the host's shared ingress; NATS users per operator; workers never get NATS credentials | yes |
 | F4 | scope leases enforced at spawn, integrate, board commit | yes |
 | F5 (optional) | IRC bridge on Ergo | yes, as a console |
@@ -551,7 +551,7 @@ A new principal kind, `svc:`, names a bridge: a small service that receives a pr
 svc:*@acme cert-authority,namespaces="event.v1@waggle" ssh-ed25519 AAAA…
 ```
 
-- **One class only.** A service principal is admitted only for `event.v1@waggle`. The roster linter rejects any other namespace on an `svc:` line, and the verifier refuses an `svc:` signature in any other class even where a roster line allows it.
+- **One class only.** A service principal is admitted only for `event.v1@waggle`. The roster check rejects any other namespace on an `svc:` line, and the verifier refuses an `svc:` signature in any other class even where a roster line allows it.
 - **Signer groups.** A published process template declares the events it reacts to and a signer group for each. Only the committed project file binds a group to service principals. The board accepts an event only when its author is bound to the event's signer group at the pinned revision; an event whose group is unbound is refused and logged.
 - **Bridges verify first.** A bridge verifies the provider's own webhook authentication (its signature scheme, or mutual TLS) before it signs, and signs only events of the groups it is bound to. It never holds an operator key and cannot sign `board`, `coord` or `cmd`.
 
@@ -698,3 +698,15 @@ With CM2 (§17):
 - a hand-off across boards runs `handoff-offer`, `handoff-accept` and `handoff-result` over the CM2 carrier.
 
 Until then, signed human acts use only the forms of §1–§18, and a hand-off across boards is unavailable. A hand-off between processes on one board needs none of this.
+
+## 20. Change log: v5.1 → v5.2
+
+v5.2 aligns the command names with task-board's command-line shape of 2026-09-27, in which one verb keeps one meaning across tools: `list`, `show` and `check` read or verify, `approve` and `reject` decide one pending item, and a list is never an adjective. Nothing else changes.
+
+| Before | After | Where |
+| --- | --- | --- |
+| `task-board mail keys inspect <cert>` | `task-board mail keys show <cert>` | §3.1 |
+| `task-board mail roster lint`, "the roster linter" | `task-board mail roster check`, "the roster check" | §3.1, §19.3 |
+| `task-board mail rejected` | `task-board mail list --rejected` | §4.3, §14 |
+| `task-board mail release <id>` for a quarantined message | `task-board mail approve <id>`, with `task-board mail reject <id>` to drop it | §7 |
+| (unnamed) | `task-board lease list`, `task-board lease show <scope>` | §12 |

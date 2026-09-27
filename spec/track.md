@@ -1,6 +1,6 @@
 # Track: waggle (agent communication)
 
-Status: **DRAFT v4.1**, 2026-09-24. Specification: `spec/waggle.md` (draft v5.1, with Amendment A1 for board processes). Continues the task-board coordination-rooms epic. Research: three notes in the private task-board repository (`skill-project-management`): the task-board messaging map, the Apiary and ax messaging map, and the agent-messaging landscape. Roadmap: parallel track CM0–CM4, high priority, starts now.
+Status: **DRAFT v4.1**, 2026-09-24. Specification: `spec/waggle.md` (draft v5.2, with Amendment A1 for board processes and the command names of v5.2). Continues the task-board coordination-rooms epic. Research: three notes in the private task-board repository (`skill-project-management`): the task-board messaging map, the Apiary and ax messaging map, and the agent-messaging landscape. Roadmap: parallel track CM0–CM4, high priority, starts now.
 
 ## Why
 
