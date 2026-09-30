@@ -377,6 +377,10 @@ Example: Alpha (Alice) leases Epic Auth, Beta (Bob) leases Epic Billing. When Al
 
 The kernel checks leases at the three places where damage happens: **spawn** (starting work), **integrate** (landing code) and **board commit** (writing board state). Operators see them with `task-board lease list` and `task-board lease show <scope>`; only the kernel writes them. Messages alone cannot prevent two orchestrators from working on the same story at once (a finding of the earlier coordination-rooms research); the lease can.
 
+**One accepting writer, with epoch fencing** *(decided 2026-09-28; the wording is a draft)*. A board, or a collaboration on it, has one accepting writer at a time. Typed operations carry the actor, the board, the configuration version, the scope and its lease epoch, the expected revision and an operation id. The epoch is checked at spawn, at the final mutation and at integration. An orchestrator that loses the authority pauses new writes.
+
+<!-- TODO(tb-keeper): source: relux-works/wiki decisions.md, "2026-09-28: drafts on main, the Keeper's scope, two operators, the campaigns", *Two operators on one module* ("This goes to the waggle CM2 track"). Open for the keeper: whether the lease `term` above and the epoch are one value; whether "board commit" above and "the final mutation" name the same check; whether this paragraph lives here, in §11 or only in track CM2. -->
+
 ## 13. Protocol lab
 
 The coordination vocabulary should come from how agents actually coordinate, not only from design. The protocol lab is an experiment run beside CM1–CM2:
