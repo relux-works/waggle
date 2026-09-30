@@ -1,6 +1,6 @@
 # waggle: agent communication specification
 
-Status: **DRAFT v5.2**, 2026-09-27. Not normative. Track document: `spec/track.md`. Evidence: research notes in the private task-board repository (`skill-project-management`): the task-board messaging map (*TM*), the Apiary and ax messaging map (*AX*) and the agent-messaging landscape (*LS*). Continues the task-board coordination-rooms epic. v5.1 adds Amendment A1 (§19) with what board processes need: signed approvals, relaxations and human transitions on a board; signed external events from service principals; the hand-off result; user verification in board policy; delegation of board acts to orchestrator roles. The direction of A1 is accepted, and it is implemented with CM2. v5 splits the protocol into a communication layer and a coordination layer, and adds the conversation model and the provider interface, the protocol lab, delivery through the session-host module and the placement of the internet carrier; v4 of the same day added signer providers.
+Status: **DRAFT v5.3**, 2026-09-29. Not normative. Track document: `spec/track.md`. Evidence: research notes in the private task-board repository (`skill-project-management`): the task-board messaging map (*TM*), the Apiary and ax messaging map (*AX*) and the agent-messaging landscape (*LS*). Continues the task-board coordination-rooms epic. v5.3 adds §19.10, approval taps from a chat bridge: a person approves a pending request with one tap in a chat app, under a delegation grant, without a new trust system. v5.1 adds Amendment A1 (§19) with what board processes need: signed approvals, relaxations and human transitions on a board; signed external events from service principals; the hand-off result; user verification in board policy; delegation of board acts to orchestrator roles. The direction of A1 is accepted, and it is implemented with CM2. v5 splits the protocol into a communication layer and a coordination layer, and adds the conversation model and the provider interface, the protocol lab, delivery through the session-host module and the placement of the internet carrier; v4 of the same day added signer providers.
 
 Published as a draft for review; nothing here is implemented yet.
 
@@ -697,9 +697,75 @@ With CM2 (§17):
 - the signer role `result` in step 2 of §4.3;
 - the approve command renders board acts;
 - the board verifies `event.post` from `task-board event post` and from bridges;
+- the reserved event name `approval.tap` and the tap grant of §19.10. A thin interim in coordination tooling may implement them before CM2 only if it uses these formats verbatim and waggle's verification algorithm, with its budget enforced by the single bridge;
 - a hand-off across boards runs `handoff-offer`, `handoff-accept` and `handoff-result` over the CM2 carrier.
 
 Until then, signed human acts use only the forms of §1–§18, and a hand-off across boards is unavailable. A hand-off between processes on one board needs none of this.
+
+### 19.10 Approval taps from a chat bridge *(v5.3, 2026-09-29)*
+
+A person often has to answer a pending request away from the workstation. §19.8 already lets a person delegate approvals, and §19.2 and §19.3 already carry signed events from bridges. This section combines the two, so that one tap in a chat app on the person's phone can count as that person's approval of a narrowly scoped request. It adds one reserved event name and one grant form. It adds no new signer role and no new trust root.
+
+- **The event.** A bridge reports a tap as an `event.post` (§19.2) whose name is `approval.tap`. The name is reserved by waggle: a process configuration cannot redeclare it. Only a service principal (§19.3) bound to the signer group `approval-bridge` signs it. The bridge verifies the chat provider's own authentication first, as every bridge does. The body carries:
+  - `request`: the id of the pending request envelope and `sha256`, the digest of that envelope's canonical bytes;
+  - `approver`: the `op:` principal the channel identity is bound to;
+  - `channel`: `kind` (`matrix`, `telegram`, …), `user` (the provider's account id), and `device`. `device` is either `{ "id", "key_fingerprint", "verified": true }`, when the bridge verified the sending device cryptographically, or `{ "verified": false }`;
+  - `decision`: `approve`, `reject` or `revoke`;
+  - `shown`: the bounded fields the bridge rendered to the person, and nothing else;
+  - `observed_at`, and `grant`, the envelope id of the grant the bridge believes applies. `grant` is informational: the verifier finds the grant itself.
+
+  `expires_at` is required and short (minutes). The envelope id is a name-based UUID of the channel kind and the provider's event id, so a redelivered tap is one envelope (§19.2).
+- **Rendering.** The bridge renders the request itself, from the canonical request envelope, and never shows text laid out by the requester. `shown` records what the person saw, and `request.sha256` binds it to the request. The bridge is the device that computes what is shown, not the person's own device, so principle b of curator-trust (`spec/trust.md` §4) holds only as far as the bridge is trusted. That is why taps are confined to what the grant below allows.
+- **Channel assurance.**
+  - `device.verified = true` means the bridge checked the tap's origin against a device of the person that is cross-signed and pinned in the grant. In Matrix that requires an encrypted room with the person's device verified.
+  - `device.verified = false` means the tap proves only that the account's credentials were used.
+  - A grant names the minimum channel assurance it accepts. Account-only taps may be admitted only for scopes the grant explicitly marks low-risk.
+- **The tap grant.** A `board.delegate` act (§19.8) whose delegate is a bridge channel instead of an orchestrator session:
+  - `delegate: { "kind": "approval.tap", "bridge": "svc:…", "channel_user": "…", "device_fingerprint": "…" | null, "min_assurance": "device" | "account" }`;
+  - `acts`: approvals of the listed request scopes, named explicitly and never by a pattern;
+  - an expiry and a budget per period.
+
+  It is the grantor's own act, signed with the grantor's approver key at user verification (§19.5). No tap grant covers a confirmation, a capability grant or a class the policy marks high-risk (curator-trust `spec/trust.md` §7); those always need the person's own approver signature over a locally rendered view.
+- **What the verifier checks.**
+  1. The event's signature, made by a service principal that the roster admits for `event.v1@waggle` only and that is bound to `approval-bridge`.
+  2. A live, unrevoked tap grant, signed by the approver's key at user verification, that names this bridge and channel user, and the device fingerprint when the grant pins one.
+  3. That the event's channel assurance meets the grant's minimum.
+  4. That `request.sha256` equals the digest of the request being decided, and that the request's scope is in the grant.
+  5. That the grant's budget for the period is not spent.
+  6. That the envelope is not a duplicate and has not expired.
+
+  Only then does the tap count as the grantor's approval, or rejection, of exactly that request. A bridge signature never counts as an approver signature, and the namespaces keep them apart as in §19.8.
+- **Budgets.**
+  - The bridge refuses to emit a tap past the grant's budget.
+  - Each verifier also counts the taps it has accepted.
+  - A budget shared across machines needs the CM2 lease store (§12), as in §19.8. Until CM2, a budget is enforced by the single bridge and by each verifier locally.
+- **Revocation.** `decision = revoke` is a person's narrowing act (curator-trust `spec/trust.md` §5). It needs no user verification, and a verifier honours it at once for the grant it names, or for every tap grant of that channel user when it names none. The worst a stolen channel can do with it is deny service.
+- **Audit.** Every counted tap is also posted where the operators watch, for example a system room, so a misused channel shows up at once.
+
+```json
+{
+  "schema": "waggle-v1",
+  "type": "event.post",
+  "id": "8c3f2a91-4d6e-5b7a-9c0d-2e1f3a4b5c6d",
+  "from": "svc:chat-approvals@acme",
+  "project": "acme",
+  "issued_at": 1790000000000,
+  "expires_at": 1790000900000,
+  "body": {
+    "name": "approval.tap",
+    "source": { "provider": "matrix", "event_id": "$reaction-event-id" },
+    "data": {
+      "request": { "id": "0192fb10-1a2b-7c3d-8e4f-5a6b7c8d9e0f", "sha256": "sha256:3f9a…" },
+      "approver": "op:alice@acme",
+      "channel": { "kind": "matrix", "user": "@alice:chat.acme.example", "device": { "id": "PHONEDEVICE", "key_fingerprint": "ed25519:9b1c…", "verified": true } },
+      "decision": "approve",
+      "shown": { "requester": "orch:cafe@acme", "scope": "cafe.release.tag", "text": "Tag cafe-api v1.4.0 at 1a2b3c4" },
+      "observed_at": 1790000000000,
+      "grant": "0192f9e0-7a6b-7c5d-8e4f-3a2b1c0d9e8f"
+    }
+  }
+}
+```
 
 ## 20. Change log: v5.1 → v5.2
 
@@ -712,3 +778,13 @@ v5.2 aligns the command names with task-board's command-line shape of 2026-09-27
 | `task-board mail rejected` | `task-board mail list --rejected` | §4.3, §14 |
 | `task-board mail release <id>` for a quarantined message | `task-board mail approve <id>`, with `task-board mail reject <id>` to drop it | §7 |
 | (unnamed) | `task-board lease list`, `task-board lease show <scope>` | §12 |
+
+## 21. Change log: v5.2 → v5.3
+
+v5.3 adds §19.10, approval taps from a chat bridge, for agent-coordination tooling that needs relayed owner approvals before CM2. It adds:
+- the reserved event name `approval.tap` with its body;
+- the tap grant, a `board.delegate` whose delegate is a bridge channel, with a minimum channel assurance;
+- the verifier's checks, budgets enforced by the bridge until the CM2 lease store, and a one-tap revocation as a narrowing act;
+- a §19.9 note that coordination tooling may implement §19.10 as a thin interim, provided it uses these formats verbatim.
+
+Nothing in §1–§19.9 changes. `spec/waggle.ru.md` does not yet mirror §19.8 or §19.10; its sync is a separate change.
